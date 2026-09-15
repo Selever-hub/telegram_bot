@@ -1,107 +1,93 @@
-import urllib.request
-import urllib.parse
+import os
 import time
+import requests
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
-TOKEN = "8993713089:AAEpvvyBzOS9r-xe8c5m2MRgwIyqw5priEs"
-CHAT_ID = "-1002354604250"
+TOKEN = os.environ["BOT_TOKEN"]
 
-schedule = {
-    "Понедельник": [
-        ("Артем", "10:00", "12:00"),
-        ("Артем", "18:30", "20:00"),
-        ("Кирилл", "15:00", "18:00")
-    ],
-    "Вторник": [
-        ("Артем", "10:00", "11:00"),
-        ("Артем", "19:00", "20:00")
-    ],
-    "Среда": [
-        ("Артем", "10:00", "12:00"),
-        ("Артем", "18:30", "20:00"),
-        ("Ярослав", "15:30", "17:20")
-    ],
-    "Четверг": [
-        ("Артем", "10:00", "12:00"),
-        ("Артем", "18:20", "20:00"),
-        ("Ярослав", "15:30", "17:20")
-    ],
-    "Пятница": [
-        ("Артем", "10:00", "11:00"),
-        ("Арсений", "18:00", "20:00"),
-        ("Ярослав", "15:30", "17:20"),
-        ("Кирилл", "15:00", "18:00")
-    ],
-    "Суббота": [
-        ("Арсений", "11:00", "12:00"),
-        ("Арсений", "18:00", "20:00"),
-        ("Ярослав", "10:00", "20:00")
-    ],
-    "Воскресенье": [
-        ("Арсений", "10:00", "12:00"),
-        ("Ярослав", "10:00", "20:00")
-    ]
+GROUP_ID = "-1002354604250"
+THREAD_ID = 411435
+
+SCHEDULE = {
+    "Артем": {
+        0: [("10:00", "12:00"), ("18:30", "20:00")],
+        1: [("10:00", "11:00"), ("19:00", "20:00")],
+        2: [("10:00", "12:00"), ("18:30", "20:00")],
+        3: [("10:00", "12:00"), ("18:20", "20:00")],
+        4: [("10:00", "11:00")],
+    },
+
+    "Арсений": {
+        4: [("18:00", "20:00")],
+        5: [("11:00", "12:00"), ("18:00", "20:00")],
+        6: [("10:00", "12:00")],
+    },
+
+    "Ярослав": {
+        2: [("15:30", "17:20")],
+        3: [("15:30", "17:20")],
+        4: [("15:30", "17:20")],
+        5: [("10:00", "20:00")],
+        6: [("10:00", "20:00")],
+    },
+
+    "Кирилл": {
+        0: [("15:00", "18:00")],
+        4: [("15:00", "18:00")],
+    },
 }
-
-days = [
-    "Понедельник",
-    "Вторник",
-    "Среда",
-    "Четверг",
-    "Пятница",
-    "Суббота",
-    "Воскресенье"
-]
-
-sent_shifts = set()
 
 def send_message(text):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
 
-    data = urllib.parse.urlencode({
-        "chat_id": CHAT_ID,
+    data = {
+        "chat_id": GROUP_ID,
+        "message_thread_id": THREAD_ID,
         "text": text
-    }).encode()
+    }
 
-    try:
-        urllib.request.urlopen(url, data)
-        print("Сообщение отправлено!")
-    except Exception as e:
-        print("Ошибка:", e)
+    requests.post(url, data=data)
+
+sent_start = set()
+sent_end = set()
 
 while True:
-    now = datetime.now()
-    day = days[now.weekday()]
+    now = datetime.now(ZoneInfo("Europe/Moscow"))
+
+    day = now.weekday()
     current_time = now.strftime("%H:%M")
+    date = now.strftime("%Y-%m-%d")
 
-    if day in schedule:
-        for name, start, end in schedule[day]:
+    for name, days in SCHEDULE.items():
+        if day not in days:
+            continue
 
-            shift_id = f"{day}_{name}_{start}_{end}_{now.date()}"
+        for start, end in days[day]:
 
-            if current_time == start and shift_id not in sent_shifts:
-                start_time = datetime.strptime(start, "%H:%M")
-                end_time = datetime.strptime(end, "%H:%M")
+            start_key = f"{date}_{name}_{start}"
+            end_key = f"{date}_{name}_{end}"
 
-                duration = end_time - start_time
-                minutes = int(duration.total_seconds() // 60)
-
-                hours = minutes // 60
-                mins = minutes % 60
-
-                if mins == 0:
-                    duration_text = f"{hours} ч."
-                else:
-                    duration_text = f"{hours} ч. {mins} мин."
-
-                text = (
-                    "🟢 Смена открыта!\n\n"
-                    f"👤 Модератор: {name}\n"
-                    f"⏱ Продолжительность: {duration_text}\n"
-                    f"🕐 Время: {start}–{end}"
+            if current_time == start and start_key not in sent_start:
+                send_message(
+                    f"🚇 Смена началась!\n\n"
+                    f"👤 Сотрудник: {name}\n"
+                    f"🕐 Время: {start} — {end}"
                 )
 
-                send_message(text)
-                sent_shifts.add(shift_id)
+                sent_start.add(start_key)
+
+            if current_time == end and end_key not in sent_end:
+                send_message(
+                    f"🔴 Смена закрыта!\n\n"
+                    f"👤 Сотрудник: {name}\n"
+                    f"🕐 Время смены: {start} — {end}"
+                )
+
+                sent_end.add(end_key)
+
+    if len(sent_start) > 1000:
+        sent_start.clear()
+        sent_end.clear()
 
     time.sleep(20)
