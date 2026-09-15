@@ -3,7 +3,7 @@ import urllib.parse
 import time
 from datetime import datetime
 
-TOKEN = "ТВОЙ_ТОКЕН_БОТА"
+TOKEN = "8993713089:AAEpvvyBzOS9r-xe8c5m2MRgwIyqw5priEs"
 CHAT_ID = "-1002354604250"
 
 schedule = {
