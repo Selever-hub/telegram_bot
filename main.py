@@ -9,6 +9,9 @@ TOKEN = os.environ["BOT_TOKEN"]
 GROUP_ID = "-1002354604250"
 THREAD_ID = 411435
 
+MOSCOW = ZoneInfo("Europe/Moscow")
+NOVOSIBIRSK = ZoneInfo("Asia/Novosibirsk")
+
 SCHEDULE = {
     "Артем": {
         0: [("10:00", "12:00"), ("18:30", "20:00")],
@@ -53,13 +56,18 @@ sent_start = set()
 sent_end = set()
 
 while True:
-    now = datetime.now(ZoneInfo("Europe/Moscow"))
-
-    day = now.weekday()
-    current_time = now.strftime("%H:%M")
-    date = now.strftime("%Y-%m-%d")
 
     for name, days in SCHEDULE.items():
+
+        if name == "Артем":
+            now = datetime.now(NOVOSIBIRSK)
+        else:
+            now = datetime.now(MOSCOW)
+
+        day = now.weekday()
+        current_time = now.strftime("%H:%M")
+        date = now.strftime("%Y-%m-%d")
+
         if day not in days:
             continue
 
@@ -69,6 +77,7 @@ while True:
             end_key = f"{date}_{name}_{end}"
 
             if current_time == start and start_key not in sent_start:
+
                 send_message(
                     f"🚇 Смена началась!\n\n"
                     f"👤 Сотрудник: {name}\n"
@@ -78,6 +87,7 @@ while True:
                 sent_start.add(start_key)
 
             if current_time == end and end_key not in sent_end:
+
                 send_message(
                     f"🔴 Смена закрыта!\n\n"
                     f"👤 Сотрудник: {name}\n"
@@ -91,3 +101,4 @@ while True:
         sent_end.clear()
 
     time.sleep(20)
+
