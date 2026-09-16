@@ -50,7 +50,12 @@ def send_message(text):
         "text": text
     }
 
-    requests.post(url, data=data)
+    response = requests.post(url, data=data, timeout=10)
+
+    if not response.ok:
+        print("Ошибка Telegram:", response.text)
+    else:
+        print("Сообщение отправлено")
 
 sent_start = set()
 sent_end = set()
@@ -65,7 +70,7 @@ while True:
             now = datetime.now(MOSCOW)
 
         day = now.weekday()
-        current_time = now.strftime("%H:%M")
+        current_minutes = now.hour * 60 + now.minute
         date = now.strftime("%Y-%m-%d")
 
         if day not in days:
@@ -73,32 +78,35 @@ while True:
 
         for start, end in days[day]:
 
+            start_hour, start_minute = map(int, start.split(":"))
+            end_hour, end_minute = map(int, end.split(":"))
+
+            start_minutes = start_hour * 60 + start_minute
+            end_minutes = end_hour * 60 + end_minute
+
             start_key = f"{date}_{name}_{start}"
             end_key = f"{date}_{name}_{end}"
 
-            if current_time == start and start_key not in sent_start:
+            if start_minutes <= current_minutes < end_minutes:
+                if start_key not in sent_start:
 
-                send_message(
-                    f"🚇 Смена началась!\n\n"
-                    f"👤 Сотрудник: {name}\n"
-                    f"🕐 Время: {start} — {end}"
-                )
+                    send_message(
+                        f"🚇 Смена началась!\n\n"
+                        f"👤 Сотрудник: {name}\n"
+                        f"🕐 Время: {start} — {end}"
+                    )
 
-                sent_start.add(start_key)
+                    sent_start.add(start_key)
 
-            if current_time == end and end_key not in sent_end:
+            if current_minutes >= end_minutes:
+                if start_key in sent_start and end_key not in sent_end:
 
-                send_message(
-                    f"🔴 Смена закрыта!\n\n"
-                    f"👤 Сотрудник: {name}\n"
-                    f"🕐 Время смены: {start} — {end}"
-                )
+                    send_message(
+                        f"🔴 Смена закрыта!\n\n"
+                        f"👤 Сотрудник: {name}\n"
+                        f"🕐 Время смены: {start} — {end}"
+                    )
 
-                sent_end.add(end_key)
-
-    if len(sent_start) > 1000:
-        sent_start.clear()
-        sent_end.clear()
+                    sent_end.add(end_key)
 
     time.sleep(20)
-
